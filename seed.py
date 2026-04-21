@@ -170,6 +170,12 @@ DEFAULT_GROUPS = [
         "title": "комната отдыха", 
         "url": "https://vk.com/eto_komnata_otdyha"
     },
+    {
+        "vk_id": 192212202, 
+        "screen_name": "kras.metro", 
+        "title": "КрасМетро", 
+        "url": "https://vk.com/kras.metro"
+    },
 ]
 
 DEFAULT_INDUSTRIES = [

@@ -44,7 +44,7 @@ def get_all_posts(
 ):
     posts = db.query(Post)\
     .options(selectinload(Post.industry))\
-    .order_by(desc(Post.posted_at))\
+    .order_by(desc(Post.er))\
     .all()
 
     return posts
@@ -69,8 +69,6 @@ async def parse_sources(db: Session = Depends(get_db)):
 
     raw_posts = await parser.parse_multiple_groups(urls, db)
 
-    # analysis_results = await pipeline.process_new_posts(raw_posts, db)
-
     return {
         "Статус": "успешно"
     }
@@ -87,23 +85,24 @@ async def run_analysis(background_tasks: BackgroundTasks):
 @app.post("/Тренды")
 async def trends_discover(db: Session = Depends(get_db)):
 
-    trends = db.query(Trend).options(selectinload(Trend.industry)).all()
-    industries = db.query(Industry).all()
-
+    trends = db.query(Trend).options(joinedload(Trend.industry)).all()
     result = []
+
     for trend in trends:
         related_posts = trend.posts
         #industry_names = [ind.name for ind in trend.industry]
         result.append({
             "ID тренда": trend.id,
             "Название": trend.name,
+            "Вовлеченность": trend.er,
             #"Категория": industry_names,
             "Количество постов": len(related_posts),
             "Посты": [
                 {
                     "ID поста": p.id, 
                     "Текст": p.text[:100] + "...",
-                    "Источник": p.group.title # Если у вас есть поле источника
+                    "Источник": p.group.title,
+                    "Вовлеченность": p.er
                 } for p in related_posts
             ]
         })

@@ -20,19 +20,20 @@ class TrendDiscover:
         time_threshold = datetime.utcnow() - timedelta(hours=24)
         posts = db.query(Post).filter(
             Post.created_at >= time_threshold,
-            Post.embedding != None
+            Post.embedding != None,
+            Post.trends == None
         ).all()
 
+        if not posts:
+            print("Нет новых постов для анализа")
+            return
+
         embeddings = np.array([p.embedding for p in posts])
-
         labels = self.model.fit_predict(embeddings)
-
-        for p in posts:
-            p.trend_id = None
 
         clusters = {}
         for idx, label in enumerate(labels):
-            if label == -1: # Пропускаем шум (одиночные посты)
+            if label == -1:
                 continue
             
             if label not in clusters:
@@ -48,7 +49,8 @@ class TrendDiscover:
                 text("""
                     SELECT id FROM trends 
                     WHERE (1 - (centroid <=> :centroid)) > 0.9 
-                    AND discovered_at > NOW() - INTERVAL '12 hours'
+                    AND updated_at > NOW() - INTERVAL '12 hours'
+                    ORDER BY (1 - (centroid <=> :centroid)) DESC
                     LIMIT 1
                 """),
                 {"centroid": str(centroid)}
@@ -57,19 +59,36 @@ class TrendDiscover:
             if existing_trend:
                 trend_id = existing_trend[0]
                 target_trend = db.query(Trend).get(trend_id)
+                target_trend.updated_at = datetime.utcnow()
                 print(f"Добавляю посты в существующий тренд: {target_trend.name}")
 
                 for p in cluster_posts:
-                # Проверка, чтобы не добавить пост дважды
                     if p not in target_trend.posts:
                         target_trend.posts.append(p)
 
             else:
                 print(f"Создаю новый тренд...")
+                now = datetime.utcnow()
+                
                 industry_id = cluster_posts[0].industry_id if cluster_posts else None
                 trend_title = await self._generate_llm_title(cluster_posts)
 
-                new_trend = Trend(name=trend_title, centroid=centroid, discovered_at=datetime.utcnow(), industry_id=industry_id)
+                post_ers = [p.er for p in cluster_posts if p.er is not None]
+
+                if post_ers:
+                    trend_er = sum(post_ers) / len(post_ers)
+                else:
+                    trend_er = 0.0
+
+                new_trend = Trend(
+                    name = trend_title, 
+                    centroid = centroid, 
+                    discovered_at = now,
+                    updated_at = now, 
+                    industry_id = industry_id,
+                    er = trend_er
+                )
+                
                 for p in cluster_posts:
                     new_trend.posts.append(p)
                 db.add(new_trend)
@@ -108,7 +127,6 @@ class TrendDiscover:
                 return title.strip().replace('"', '')
         except Exception as e:
             print(f"Ошибка YandexGPT: {e}")
-            # Резервный вариант, если LLM не ответила (ваша логика с 5 словами)
             words = cluster_posts[0].text.split()
             return " ".join(words[:5]) + "..."
 

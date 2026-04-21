@@ -7,6 +7,7 @@ from app.services.data_analysis.preprocessing import TextCleaner
 from app.services.data_analysis.preprocessing import TextProcessor
 from app.services.data_analysis.embedder import TextEmbedder
 from app.services.trend_discover import TrendDiscover
+from app.services.metrics_counter import get_post_metrics
 
 from sqlalchemy.orm import Session
 from app.db.models import Post
@@ -73,7 +74,6 @@ class AnalysisPipeline:
 
             else:
                 print(f"Пост {post.id}: уже имеет категорию, пропускаю классификацию")
-
              
         db.commit()
 

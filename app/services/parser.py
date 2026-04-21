@@ -3,6 +3,7 @@ import os
 import logging
 import httpx
 import uuid
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
@@ -100,6 +101,10 @@ class VKParser:
     async def parse_multiple_groups(self, group_urls: list, db: Session):
         time_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
         async with httpx.AsyncClient() as client:
+
+            screen_names = [url.strip('/').split('/')[-1] for url in group_urls]
+            all_counts = await self.get_all_subscribers(client, screen_names)
+
             for url in group_urls:
                 try:
                     screen_name = url.strip('/').split('/')[-1]
@@ -108,7 +113,12 @@ class VKParser:
                     if not group:
                         logging.warning(f"Группа {screen_name} не найдена в БД. Пропускаю.")
                         continue
-                    
+
+                    count = all_counts.get(screen_name, 0)
+
+                    group.subscribers = count
+                    db.commit()
+
                     raw_id = int(group.vk_id)
                     clean_owner_id = -abs(raw_id)
 
@@ -132,12 +142,15 @@ class VKParser:
                         if post_date < time_threshold or not post.get("text"):
                             continue
 
-                        likes, views = get_post_metrics(post)
+                        likes, views, url = get_post_metrics(post)
 
                         exists = db.query(Post).filter(
                             Post.group_id == group.id,
                             Post.message_id == post["id"]
                         ).first()
+
+                        er_value = (likes / group.subscribers * 100) if group.subscribers > 0 else 0
+
                         if not exists:
                             new_post = Post(
                                 group_id=group.id,
@@ -145,10 +158,20 @@ class VKParser:
                                 text=post["text"],
                                 posted_at=post_date,
                                 likes_count=likes,
-                                views_count=views
+                                views_count=views,
+                                url=url,
+                                er=er_value
                             )
                             db.add(new_post)
+
+                        else:
+                            exists.likes_count = likes
+                            exists.views_count = views
+                            exists.post_url = url
+                            exists.er = er_value
+
                     db.commit()
+                    await asyncio.sleep(0.4) 
 
                 except Exception as e:
                     logging.error(f"Ошибка при парсинге {url}: {e}")
@@ -169,6 +192,53 @@ class VKParser:
                     f.write(response.content)
                 return filename
         return None
+
+    async def get_subscribers_count(self, client: httpx.AsyncClient, group_id: str) -> int:
+        try:
+            params = {
+                "group_id": group_id,
+                "fields": "members_count",
+                "access_token": self.token.strip(),
+                "v": self.api_version
+            }
+            response = await client.get("https://api.vk.com/method/groups.getById", params=params)
+            data = response.json()
+
+            if "response" in data and len(data["response"]) > 0:
+                return data["response"][0].get("members_count", 0)
+            
+            print(f"Ошибка API VK при получении участников {group_id}: {data.get('error')}")
+            return 0
+        except Exception as e:
+            print(f"Исключение при запросе участников для {group_id}: {e}")
+            return 0
+
+    async def get_all_subscribers(self, client: httpx.AsyncClient, screen_names: list) -> dict:
+        try:
+            params = {
+                "group_ids": ",".join(screen_names),
+                "fields": "members_count",
+                "access_token": self.token.strip(),
+                "v": self.api_version
+            }
+            response = await client.get("https://api.vk.com/method/groups.getById", params=params)
+            data = response.json()
+
+            if "response" in data:
+                return {item['screen_name']: item.get('members_count', 0) for item in data['response']}
+            
+            return {}
+        
+        except Exception as e:
+            logging.error(f"Ошибка при массовом получении участников: {e}")
+            return {}
+
+
+
+
+
+
+
 
 
 

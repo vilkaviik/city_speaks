@@ -19,6 +19,8 @@ class PostSchema(BaseModel):
     posted_at: datetime
     likes_count: Optional[int] = 0 
     views_count : Optional[int] = 0 
+    url: Optional[str] = None
+    er : float
     embedding: List[float]
     industry: List[IndustrySchema] = []
 
@@ -41,6 +43,7 @@ class GroupSchema(BaseModel):
     id: int
     screen_name: str
     title: str
+    subscribers : int
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,11 +56,12 @@ class PostInTrendSchema(BaseModel):
 
 class TrendDebugSchema(BaseModel):
     id: int
-    name: str  # Вот тут мы будем видеть результат работы YandexGPT
+    name: str 
     discovered_at: datetime
+    er : float
     posts_count: int
     posts: List[PostInTrendSchema]
     industry: List[IndustrySchema] = []
-
+    
     class Config:
         from_attributes = True

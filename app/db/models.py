@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, BigInteger, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, BigInteger, UniqueConstraint, Float
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 from pgvector.sqlalchemy import Vector 
@@ -25,6 +25,7 @@ class Group(Base):
     id = Column(Integer, primary_key=True, index=True)
     vk_id = Column(BigInteger, unique=True, nullable=False, index=True)
     screen_name = Column(String(255), unique=True, nullable=False, index=True)
+    subscribers = Column(Integer, default=0)
     title = Column(String(512), nullable=True)
     url = Column(String(1024), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -56,10 +57,13 @@ class Post(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     likes_count = Column(Integer, default=0)
     views_count = Column(Integer, default=0)
+    url = Column(String, nullable=True)
 
     cleaned_text = Column(Text, nullable=True)
     normalized_text = Column(Text, nullable=True)
-    embedding = Column(Vector(256), nullable=True) 
+    embedding = Column(Vector(256), nullable=True)
+
+    er = Column(Float, default=0)
 
     group = relationship("Group", back_populates="posts")
     industry = relationship("Industry", secondary=post_industry, back_populates="posts")
@@ -77,8 +81,9 @@ class Trend(Base):
     industry_id = Column(Integer, ForeignKey("industries.id", ondelete="SET NULL"), nullable=True, index=True)
     name = Column(String(256), nullable=False, index=True)
     centroid = Column(Vector(256), nullable=True)
-    description = Column(Text, nullable=True)
     discovered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+    er = Column(Float, default=0)
 
     industry = relationship("Industry", back_populates="trends")
     posts = relationship("Post", secondary=trend_post, back_populates="trends")
