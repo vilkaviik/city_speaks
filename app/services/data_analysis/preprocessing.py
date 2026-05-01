@@ -3,8 +3,6 @@ import nltk
 from nltk.corpus import stopwords
 import pymorphy3
 
-## Cleaning text - stop words, tolower() and etc
-
 try:
     nltk.data.find('corpora/stopwords')
 except LookupError:
@@ -14,7 +12,7 @@ class TextCleaner:
     def __init__(self, additional_stop_words: set = None):
         self.stop_words = set(stopwords.words('russian'))
 
-        # Список "мусорных" слов, специфичных для Telegram
+        # Список "мусорных" слов
         telegram_noise = {
             'это', 'который', 'свой', 'наш', 'ваш', 'весь', 'мочь', 
             'подписываться', 'ссылка', 'канал', 'чат', 'группа', 
@@ -29,23 +27,16 @@ class TextCleaner:
         if not text:
             return ""
 
-        # 1. Приводим к нижнему регистру
         text = text.lower()
 
-        # 2. Удаляем URL-ссылки (http, https, t.me)
         text = re.sub(r'https?://\S+|www\.\S+|t\.me/\S+', '', text)
 
-        # 3. Удаляем упоминания (@username)
         text = re.sub(r'@\w+', '', text)
 
-        # 4. Удаляем эмодзи и спецсимволы
-        # Регулярка [^а-яёa-z\s] удалит всё, что не является русской/английской буквой
         text = re.sub(r'[^а-яёa-z\s]', ' ', text)
 
-        # 5. Удаляем лишние пробелы
         text = re.sub(r'\s+', ' ', text).strip()
 
-        # 6. Фильтруем стоп-слова и слишком короткие слова (меньше 3 символов)
         words = text.split()
         filtered_words = [
             word for word in words 
@@ -58,7 +49,6 @@ class TextCleaner:
 
 class TextProcessor:
     def __init__(self):
-        # Инициализируем морфологический анализатор
         self.morph = pymorphy3.MorphAnalyzer()
 
     def lemmatize(self, cleaned_text: str) -> str:
@@ -70,9 +60,7 @@ class TextProcessor:
         lemmatized_words = []
 
         for word in words:
-            # Анализируем слово и берем первый (самый вероятный) вариант разбора
             parsed = self.morph.parse(word)[0]
-            # .normal_form возвращает начальную форму слова
             lemmatized_words.append(parsed.normal_form)
 
         return " ".join(lemmatized_words)

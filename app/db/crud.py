@@ -1,122 +1,64 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
-from app.db import models
+from app.db.models import Post, Group, Industry
 
+def get_group_by_screen_name(db: Session, screen_name: str):
+    return db.query(Group).filter(Group.screen_name == screen_name).first()
 
-def get_channel_by_id(db: Session, channel_id: int) -> Optional[models.Channel]:
-    return db.get(models.Channel, channel_id)
+def get_posts_with_industries(db: Session):
+    return db.query(Post).options(selectinload(Post.industry)).all()
 
+def get_all_industries(db: Session):
+    return db.query(Industry).all()
 
-def get_channel_by_username(db: Session, username: str) -> Optional[models.Channel]:
-    stmt = select(models.Channel).where(models.Channel.username == username)
-    return db.scalar(stmt)
+def add_post(db: Session, group_id: int, message_id: int, post_payload: dict):
+    exists = db.query(Post).filter(
+        Post.group_id == group_id,
+        Post.message_id == message_id
+    ).first()
 
-
-def get_channel_by_url(db: Session, url: str) -> Optional[models.Channel]:
-    stmt = select(models.Channel).where(models.Channel.url == url)
-    return db.scalar(stmt)
-
-
-def list_channels(db: Session, skip: int = 0, limit: int = 100) -> List[models.Channel]:
-    stmt = select(models.Channel).offset(skip).limit(limit)
-    return db.scalars(stmt).all()
-
-
-def create_channel(db: Session, username: str, url: str, title: Optional[str] = None) -> models.Channel:
-    channel = models.Channel(username=username, url=url, title=title)
-    db.add(channel)
+    if not exists:
+        new_post = Post(
+            group_id=group_id, 
+            message_id=message_id, 
+            **post_payload
+        )
+        db.add(new_post)
+    else:
+        for key, value in post_payload.items():
+            setattr(exists, key, value)
     db.commit()
-    db.refresh(channel)
-    return channel
 
-
-def get_industry_by_name(db: Session, name: str) -> Optional[models.Industry]:
-    stmt = select(models.Industry).where(models.Industry.name == name)
-    return db.scalar(stmt)
-
-
-def list_industries(db: Session, skip: int = 0, limit: int = 100) -> List[models.Industry]:
-    stmt = select(models.Industry).offset(skip).limit(limit)
-    return db.scalars(stmt).all()
-
-
-def create_industry(db: Session, name: str, description: Optional[str] = None) -> models.Industry:
-    sphere = models.Industry(name=name, description=description)
-    db.add(sphere)
-    db.commit()
-    db.refresh(sphere)
-    return sphere
-
-
-def get_or_create_industry(db: Session, name: str, description: Optional[str] = None) -> models.Industry:
-    sphere = get_industry_by_name(db, name)
-    if sphere:
-        return sphere
-    return create_industry(db, name=name, description=description)
-
-
-def get_post_by_channel_and_message(db: Session, channel_id: int, message_id: int) -> Optional[models.Post]:
-    stmt = select(models.Post).where(
-        models.Post.channel_id == channel_id,
-        models.Post.message_id == message_id,
-    )
-    return db.scalar(stmt)
-
-
-def list_posts(db: Session, skip: int = 0, limit: int = 100) -> List[models.Post]:
-    stmt = select(models.Post).offset(skip).limit(limit)
-    return db.scalars(stmt).all()
-
-
-def create_post(
-    db: Session,
-    channel: models.Channel,
-    message_id: int,
-    text: str,
-    posted_at,
-    industry_list: Optional[List[models.Industry]] = None,
-) -> models.Post:
-    post = models.Post(
-        channel=channel,
-        message_id=message_id,
-        text=text,
-        posted_at=posted_at,
-    )
-    if industry_list:
-        post.industries = industry_list
+def save_post(db: Session, post: Post):
     db.add(post)
-    db.commit()
-    db.refresh(post)
+
+def update_post(db: Session, post: Post, **kwargs):
+    for key, value in kwargs.items():
+        setattr(post, key, value)
+    db.add(post)
     return post
 
+def add_industry_to_post(db: Session, post: Post, industry: Industry):
+    post.industry.append(industry)
+    db.add(post)
 
-def get_trend_by_id(db: Session, trend_id: int) -> Optional[models.Trend]:
-    return db.get(models.Trend, trend_id)
-
-
-def list_trends(db: Session, skip: int = 0, limit: int = 100) -> List[models.Trend]:
-    stmt = select(models.Trend).offset(skip).limit(limit)
-    return db.scalars(stmt).all()
-
-
-def list_trends_by_industry(db: Session, sphere_id: int, skip: int = 0, limit: int = 100) -> List[models.Trend]:
-    stmt = select(models.Trend).where(models.Trend.sphere_id == sphere_id).offset(skip).limit(limit)
-    return db.scalars(stmt).all()
-
-
-def create_trend(
-    db: Session,
-    name: str,
-    sphere: Optional[models.Industry] = None,
-    description: Optional[str] = None,
-    score: int = 0,
-    posts: Optional[List[models.Post]] = None,
-) -> models.Trend:
-    trend = models.Trend(name=name, description=description, score=score, sphere=sphere)
-    if posts:
-        trend.posts = posts
-    db.add(trend)
+def create_group(db: Session, vk_data: dict, original_url: str):
+    new_group = Group(
+        vk_id=str(vk_data.get("id")),
+        title=vk_data.get("name", "Unknown"),
+        screen_name=vk_data.get("screen_name"),
+        url=original_url,
+        subscribers=vk_data.get("members_count", 0)
+    )
+    db.add(new_group)
     db.commit()
-    db.refresh(trend)
-    return trend
+    db.refresh(new_group)
+    return new_group
+
+def update_group_subscribers(db: Session, group: Group, count: int):
+    group.subscribers = count
+    db.flush() 
+
+
+

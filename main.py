@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends, BackgroundTasks, APIRouter
+from fastapi import FastAPI, Depends, BackgroundTasks, APIRouter, HTTPException
 from typing import List
 from schemas import PostSchema
 from schemas import GroupSchema
+from schemas import GroupAddRequest
 from sqlalchemy.orm import Session
 from app.db.models import Group
 from app.db.models import Trend
@@ -16,10 +17,11 @@ from sqlalchemy import desc
 from app.services.parser import VKParser
 from app.services.pipeline import AnalysisPipeline
 
+from app.services.group_manager import GroupManager
+
 from app.core.config import settings
 
 from sqlalchemy import func, text
-from datetime import datetime, timedelta
 
 app = FastAPI()
 
@@ -44,7 +46,7 @@ def get_all_posts(
 ):
     posts = db.query(Post)\
     .options(selectinload(Post.industry))\
-    .order_by(desc(Post.er))\
+    .order_by(desc(Post.created_at))\
     .all()
 
     return posts
@@ -167,4 +169,10 @@ def get_average_stats(db: Session = Depends(get_db)):
         "avg_every_12_hours": get_avg_query(12)
     }
 
+@app.post("/groups/add-batch", summary="Добавить новую группу")
+async def add_group(payload: GroupAddRequest, db: Session = Depends(get_db)):
+    manager = GroupManager(db, settings.VK_TOKEN)
+    new_group = await manager.add_group_by_url(payload.url)
+    return new_group
+    
 

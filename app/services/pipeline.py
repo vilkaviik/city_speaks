@@ -7,7 +7,6 @@ from app.services.data_analysis.preprocessing import TextCleaner
 from app.services.data_analysis.preprocessing import TextProcessor
 from app.services.data_analysis.embedder import TextEmbedder
 from app.services.trend_discover import TrendDiscover
-from app.services.metrics_counter import get_post_metrics
 
 from sqlalchemy.orm import Session
 from app.db.models import Post
@@ -15,8 +14,7 @@ from app.db.models import Industry
 from sqlalchemy.orm import selectinload
 from sqlalchemy.future import select
 from app.db.session import SessionLocal
-
-from app.core.config import settings
+from app.db import crud
 
 class AnalysisPipeline:
     def __init__(self, folder_id: str, api_key: str):
@@ -31,10 +29,8 @@ class AnalysisPipeline:
     async def process_new_posts(self):
         db = SessionLocal() 
 
-        posts = db.query(Post).options(selectinload(Post.industry))\
-                  .all()
-
-        all_industries = db.query(Industry).all()
+        posts = crud.get_posts_with_industries(db)
+        all_industries = crud.get_all_industries(db)
         industry_names = [ind.name for ind in all_industries]
 
         if not industry_names:
@@ -43,19 +39,18 @@ class AnalysisPipeline:
 
         for post in posts:
             print(f"DEBUG: Пост {post.id}, индустрии в объекте: {post.industry}")
-            if post.normalized_text:
-                normalized = post.normalized_text
-                print(f"Пост {post.id}: используем существующую нормализацию")
-            else:
-                cleaned = self.cleaner.clean(post.text)
-                normalized = self.processor.lemmatize(cleaned)
-                post.cleaned_text = cleaned
-                post.normalized_text = normalized
-                print(f"Пост {post.id}: нормализация выполнена")
+
+            if not post.cleaned_text:
+                post.cleaned_text = self.cleaner.clean(post.text)
+                print(f"У поста {post.id} не было очистки. Делаю очистку")
+
+            if not post.normalized_text:
+                post.normalized_text = self.processor.lemmatize(post.cleaned_text)
+                print(f"У поста {post.id} не было нормализации. Делаю нормализацию")
 
             if post.embedding is None:
-                vector = self.embedder.get_embeddings([normalized])[0]
-                post.embedding = vector.tolist()  # Сохраняем в базу как список чисел
+                vector = self.embedder.get_embeddings([post.normalized_text])[0]
+                post.embedding = vector.tolist()
                 print(f"Пост {post.id}: эмбеддинг создан")
 
             if not post.industry:
@@ -71,9 +66,8 @@ class AnalysisPipeline:
                     print(f"Присваиваю категорию {predicted_name} посту {post.id}")
                 else:
                     print(f"Не удалось сопоставить ответ LLM '{predicted_name}' ни с одной индустрией из базы")
-
-            else:
-                print(f"Пост {post.id}: уже имеет категорию, пропускаю классификацию")
+            
+            crud.save_post(db, post)
              
         db.commit()
 
@@ -130,6 +124,7 @@ class AnalysisPipeline:
             except (KeyError, IndexError) as e:
                 print(f"Ошибка при парсинге JSON: {e}")
                 return "Общество"
+
 
 
 

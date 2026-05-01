@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, field_validator, Field
+from pydantic import BaseModel, ConfigDict, field_validator, Field, HttpUrl
 from datetime import datetime
 import numpy as np
 
@@ -65,3 +65,6 @@ class TrendDebugSchema(BaseModel):
     
     class Config:
         from_attributes = True
+
+class GroupAddRequest(BaseModel):
+    url: str  
