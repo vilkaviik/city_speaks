@@ -23,6 +23,8 @@ def get_posts(db: Session, category_ids: list[int] = None, limit: int = 50, offs
                 .limit(limit)\
                 .all()
 
+def get_groups(db: Session):
+    return db.query(Group).all()
 
 def get_all_industries(db: Session):
     return db.query(Industry).all()

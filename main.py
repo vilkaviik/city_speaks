@@ -1,11 +1,10 @@
 from fastapi import FastAPI, Depends, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
-from schemas import PostSchema, GroupSchema, GroupAddRequest, IndustrySchema
+from schemas import PostSchema, GroupAddRequest
 from sqlalchemy.orm import Session, joinedload, selectinload
 from app.db import crud, session
-from app.db.models import Group, Trend, Post, Industry
-from app.db.session import get_db
+from app.db.models import Trend, Post, Industry
 import schemas
 
 from sqlalchemy import desc, text
@@ -29,10 +28,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,            # Разрешаем запросы только с этих адресов
-    allow_credentials=True,           # Разрешаем передачу кук и заголовков авторизации
-    allow_methods=["*"],               # Разрешаем все HTTP-методы (GET, POST и т.д.)
-    allow_headers=["*"],               # Разрешаем любые заголовки
+    allow_origins=origins,            
+    allow_credentials=True,           
+    allow_methods=["*"],               
+    allow_headers=["*"],               
 )
 
 @app.get("/")
@@ -50,9 +49,8 @@ def get_all_posts(
     limit: int = 50, 
     offset: int = 0, 
     category_ids: List[int] = Query(None), 
-    db: Session = Depends(get_db)
+    db: Session = Depends(session.get_db)
 ):
-    # Просто вызываем функцию из CRUD
     return crud.get_posts(
         db, 
         category_ids=category_ids, 
@@ -60,31 +58,26 @@ def get_all_posts(
         offset=offset
     )
 
-
-# Route to list all channels: username + url
-@app.get("/groups", response_model=List[GroupSchema])
-def get_channels(db: Session = Depends(get_db)):
-    channels = db.query(Group).all()
-    return channels
+@app.get("/groups", response_model=List[schemas.GroupSchema])
+def get_channels(db: Session = Depends(session.get_db)):
+    groups = crud.get_groups(db)
+    return groups
 
 @app.get("/categories", response_model=List[schemas.IndustrySchema])
 def get_categories(db: Session = Depends(session.get_db)):
     return crud.get_all_industries(db)
 
-# Route to trigger parsing
-@app.post("/Парсинг")
-async def parse_sources(db: Session = Depends(get_db)):
-
-    groups_in_db = db.query(Group).all()
+@app.post("/parsing")
+async def parse_sources(db: Session = Depends(session.get_db)):
+    groups_in_db = crud.get_groups(db)
     urls = [c.url for c in groups_in_db]
-
     raw_posts = await parser.parse_multiple_groups(urls, db)
 
     return {
         "Статус": "успешно"
     }
 
-@app.post("/Анализ текста")
+@app.post("/text_analysis")
 async def run_analysis(background_tasks: BackgroundTasks):
     background_tasks.add_task(pipeline.process_new_posts)
 
@@ -93,8 +86,8 @@ async def run_analysis(background_tasks: BackgroundTasks):
     }
 
 # Route to list trends
-@app.post("/Тренды")
-async def trends_discover(db: Session = Depends(get_db)):
+@app.post("/trends")
+async def trends_discover(db: Session = Depends(session.get_db)):
 
     trends = db.query(Trend).options(joinedload(Trend.industry)).all()
     result = []
@@ -125,7 +118,7 @@ async def trends_discover(db: Session = Depends(get_db)):
     }
 
 @app.get("/Посты с категориями")
-async def check_posts(db: Session = Depends(get_db)):
+async def check_posts(db: Session = Depends(session.get_db)):
     industry_debug = []
     industries = db.query(Industry).all()
     for i in industries:
@@ -159,7 +152,7 @@ async def check_posts(db: Session = Depends(get_db)):
     }
 
 @app.get("/posts/average-stats")
-def get_average_stats(db: Session = Depends(get_db)):
+def get_average_stats(db: Session = Depends(session.get_db)):
     def get_avg_query(hours_interval: int):
         query = text(f"""
             WITH intervals AS (
@@ -179,8 +172,8 @@ def get_average_stats(db: Session = Depends(get_db)):
         "avg_every_12_hours": get_avg_query(12)
     }
 
-@app.post("/groups/add-batch", summary="Добавить новую группу")
-async def add_group(payload: GroupAddRequest, db: Session = Depends(get_db)):
+@app.post("/groups/add", summary="Добавить новую группу")
+async def add_group(payload: GroupAddRequest, db: Session = Depends(session.get_db)):
     manager = group_manager.GroupManager(db, settings.VK_TOKEN)
     new_group = await manager.add_group_by_url(payload.url)
     return new_group
