@@ -1,32 +1,39 @@
-from fastapi import FastAPI, Depends, BackgroundTasks, APIRouter, HTTPException
+from fastapi import FastAPI, Depends, BackgroundTasks, Query
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
-from schemas import PostSchema
-from schemas import GroupSchema
-from schemas import GroupAddRequest
-from sqlalchemy.orm import Session
-from app.db.models import Group
-from app.db.models import Trend
-from app.db.models import Post
-from app.db.models import Industry
+from schemas import PostSchema, GroupSchema, GroupAddRequest, IndustrySchema
+from sqlalchemy.orm import Session, joinedload, selectinload
+from app.db import crud, session
+from app.db.models import Group, Trend, Post, Industry
 from app.db.session import get_db
+import schemas
 
-from sqlalchemy.orm import joinedload
-from sqlalchemy.orm import selectinload
-from sqlalchemy import desc
+from sqlalchemy import desc, text
 
-from app.services.parser import VKParser
-from app.services.pipeline import AnalysisPipeline
-
-from app.services.group_manager import GroupManager
+from app.services import group_manager
+from app.services import parser
+from app.services import pipeline
 
 from app.core.config import settings
 
-from sqlalchemy import func, text
+parser = parser.VKParser(settings.VK_TOKEN)
+pipeline = pipeline.AnalysisPipeline(settings.YANDEX_FOLDER_ID, settings.YANDEX_API_KEY)
 
 app = FastAPI()
 
-parser = VKParser(settings.VK_TOKEN)
-pipeline = AnalysisPipeline(settings.YANDEX_FOLDER_ID, settings.YANDEX_API_KEY)
+origins = [
+    "http://localhost:5173",
+    "https://vk-apps.com", 
+    "https://vk.com",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,            # Разрешаем запросы только с этих адресов
+    allow_credentials=True,           # Разрешаем передачу кук и заголовков авторизации
+    allow_methods=["*"],               # Разрешаем все HTTP-методы (GET, POST и т.д.)
+    allow_headers=["*"],               # Разрешаем любые заголовки
+)
 
 @app.get("/")
 def root() -> dict[str, str]:
@@ -38,29 +45,31 @@ def about() -> dict[str, str]:
     return {"message": "This is the about page."}
 
 # Route to list all posts in db
-@app.get("/Посты", response_model=List[PostSchema])
+@app.get("/posts", response_model=List[PostSchema])
 def get_all_posts(
     limit: int = 50, 
     offset: int = 0, 
+    category_ids: List[int] = Query(None), 
     db: Session = Depends(get_db)
 ):
-    posts = db.query(Post)\
-    .options(selectinload(Post.industry))\
-    .order_by(desc(Post.created_at))\
-    .all()
+    # Просто вызываем функцию из CRUD
+    return crud.get_posts(
+        db, 
+        category_ids=category_ids, 
+        limit=limit, 
+        offset=offset
+    )
 
-    return posts
 
 # Route to list all channels: username + url
-@app.get("/Группы", response_model=List[GroupSchema])
+@app.get("/groups", response_model=List[GroupSchema])
 def get_channels(db: Session = Depends(get_db)):
     channels = db.query(Group).all()
-    #return {
-    #"Количество групп": len(channels),
-    #"Группы": channels
-    #}
-
     return channels
+
+@app.get("/categories", response_model=List[schemas.IndustrySchema])
+def get_categories(db: Session = Depends(session.get_db)):
+    return crud.get_all_industries(db)
 
 # Route to trigger parsing
 @app.post("/Парсинг")
@@ -104,7 +113,8 @@ async def trends_discover(db: Session = Depends(get_db)):
                     "ID поста": p.id, 
                     "Текст": p.text[:100] + "...",
                     "Источник": p.group.title,
-                    "Вовлеченность": p.er
+                    "Вовлеченность": p.er,
+                    "Дата": p.posted_at
                 } for p in related_posts
             ]
         })
@@ -171,7 +181,7 @@ def get_average_stats(db: Session = Depends(get_db)):
 
 @app.post("/groups/add-batch", summary="Добавить новую группу")
 async def add_group(payload: GroupAddRequest, db: Session = Depends(get_db)):
-    manager = GroupManager(db, settings.VK_TOKEN)
+    manager = group_manager.GroupManager(db, settings.VK_TOKEN)
     new_group = await manager.add_group_by_url(payload.url)
     return new_group
     

@@ -49,7 +49,7 @@ class TrendDiscover:
                 text("""
                     SELECT id FROM trends 
                     WHERE (1 - (centroid <=> :centroid)) > 0.9 
-                    AND updated_at > NOW() - INTERVAL '12 hours'
+                    AND updated_at > NOW() - INTERVAL '24 hours'
                     ORDER BY (1 - (centroid <=> :centroid)) DESC
                     LIMIT 1
                 """),

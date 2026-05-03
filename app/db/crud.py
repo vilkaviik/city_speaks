@@ -1,6 +1,6 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from app.db.models import Post, Group, Industry
 
 def get_group_by_screen_name(db: Session, screen_name: str):
@@ -8,6 +8,21 @@ def get_group_by_screen_name(db: Session, screen_name: str):
 
 def get_posts_with_industries(db: Session):
     return db.query(Post).options(selectinload(Post.industry)).all()
+
+def get_posts(db: Session, category_ids: list[int] = None, limit: int = 50, offset: int = 0):
+    query = db.query(Post).options(selectinload(Post.industry))
+
+    if category_ids:
+        filtered_ids = [idx for idx in category_ids if idx != 0]
+        
+        if filtered_ids:
+            query = query.filter(Post.industry.any(Industry.id.in_(filtered_ids)))
+
+    return query.order_by(desc(Post.created_at))\
+                .offset(offset)\
+                .limit(limit)\
+                .all()
+
 
 def get_all_industries(db: Session):
     return db.query(Industry).all()
