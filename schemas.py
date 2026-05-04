@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, field_validator, Field, HttpUrl
+from pydantic import BaseModel, field_validator, HttpUrl
 from datetime import datetime
 import numpy as np
 
@@ -8,6 +8,18 @@ class IndustrySchema(BaseModel):
     name: str
     class Config:
         from_attributes = True
+
+class GroupSchema(BaseModel):
+    id: int
+    screen_name: str
+    title: str
+    url: str
+    avatar_path: str
+    subscribers : int
+
+    class Config:
+        from_attributes = True
+
 
 class PostSchema(BaseModel):
     id: int
@@ -21,10 +33,10 @@ class PostSchema(BaseModel):
     views_count : Optional[int] = 0 
     url: Optional[str] = None
     er : float
+    images: List[HttpUrl] = [] 
     embedding: List[float]
     industry: List[IndustrySchema] = []
-
-    # model_config = ConfigDict(from_attributes=True)
+    group: GroupSchema
 
     @field_validator("embedding", mode="before")
     @classmethod
@@ -38,14 +50,6 @@ class PostSchema(BaseModel):
     class Config:
         from_attributes = True
 
-
-class GroupSchema(BaseModel):
-    id: int
-    screen_name: str
-    title: str
-    subscribers : int
-
-    model_config = ConfigDict(from_attributes=True)
 
 class PostInTrendSchema(BaseModel):
     id: int

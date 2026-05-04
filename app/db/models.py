@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, BigInteger, UniqueConstraint, Float
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from app.db.base import Base
 from pgvector.sqlalchemy import Vector 
 
@@ -29,7 +30,7 @@ class Group(Base):
     title = Column(String(512), nullable=True)
     url = Column(String(1024), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    avatar_path = Column(String(255), nullable=True)
+    avatar_path = Column(String(1024), nullable=True)
     
     posts = relationship("Post", back_populates="group", cascade="all, delete-orphan")
 
@@ -58,6 +59,7 @@ class Post(Base):
     likes_count = Column(Integer, default=0)
     views_count = Column(Integer, default=0)
     url = Column(String, nullable=True)
+    images = Column(JSONB, nullable=True, server_default='[]') 
 
     cleaned_text = Column(Text, nullable=True)
     normalized_text = Column(Text, nullable=True)

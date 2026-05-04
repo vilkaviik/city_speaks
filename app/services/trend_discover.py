@@ -10,8 +10,7 @@ import httpx
 from sqlalchemy.orm import selectinload
 
 class TrendDiscover:
-    def __init__(self, api_key, folder_id, eps=0.15, min_samples=2):
-        # eps 0.15 подобран под косинусное расстояние Yandex Embeddings
+    def __init__(self, api_key, folder_id, eps=0.22, min_samples=2):
         self.model = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine')
         self.api_key = api_key
         self.folder_id = folder_id
@@ -42,7 +41,6 @@ class TrendDiscover:
         
         for label, cluster_posts in clusters.items():
 
-            # Проверка на существование похожих трендовв
             centroid = np.mean([p.embedding for p in cluster_posts], axis=0).tolist()
 
             existing_trend = db.execute(
@@ -59,6 +57,11 @@ class TrendDiscover:
             if existing_trend:
                 trend_id = existing_trend[0]
                 target_trend = db.query(Trend).get(trend_id)
+                
+                all_embeddings = [p.embedding for p in target_trend.posts] + [p.embedding for p in cluster_posts]
+                new_centroid = np.mean(all_embeddings, axis=0).tolist()
+                target_trend.centroid = str(new_centroid)
+                
                 target_trend.updated_at = datetime.utcnow()
                 print(f"Добавляю посты в существующий тренд: {target_trend.name}")
 

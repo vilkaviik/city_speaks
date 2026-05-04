@@ -14,7 +14,9 @@ import {
   Tappable,
   Caption,
   Footnote,
-  HorizontalScroll
+  HorizontalScroll,
+  Cell,
+  List, Link
 } from '@vkontakte/vkui';
 import {
   Icon16Like,
@@ -29,7 +31,6 @@ const App = () => {
   const [activePanel, setActivePanel] = useState('feed');
   const [selectedCategories, setSelectedCategories] = useState([0]);
   const [expandedTrend, setExpandedTrend] = useState(null);
-
   const [posts, setPosts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +75,6 @@ const App = () => {
     fetchCategories();
   }, []);
 
-
   const toggleCategory = (id) => {
     setSelectedCategories((prev) => {
       if (id === 0) {
@@ -92,7 +92,6 @@ const App = () => {
       return next.length === 0 ? [0] : next;
     });
   };
-
 
   const [trendsData] = useState([
     {
@@ -158,6 +157,98 @@ const App = () => {
     </Group>
   );
 
+  const PostItem = ({ post }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const MAX_LENGTH = 250;
+    const isLongText = post.text && post.text.length > MAX_LENGTH;
+
+    return (
+      <div style={{ borderBottom: '1px solid #e1e3e6', padding: '15px 12px' }}>
+        {/* ШАПКА ПОСТА */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+          <Link href={post.group?.url} target="_blank" rel="noreferrer" style={{ marginRight: '12px' }}>
+            <Avatar size={40} src={post.group?.avatar_path} />
+          </Link>
+          <div>
+            <Link
+              href={post.group?.url}
+              target="_blank"
+              rel="noreferrer"
+              hoverMode="opacity"
+              style={{
+                fontWeight: 600,
+                fontSize: '15px',
+                color: 'var(--vkui--color_text_primary)',
+                textDecoration: 'none',
+                display: 'block'
+              }}
+            >
+              {post.group?.title || post.group?.name}
+            </Link>
+            <div style={{ color: '#818c99', fontSize: '13px' }}>
+              {new Date(post.posted_at).toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+
+        {/* ТЕКСТ ПОСТА */}
+        <div style={{ textAlign: 'left', marginBottom: '8px', whiteSpace: 'pre-wrap', fontSize: '15px' }}>
+          {isLongText && !isExpanded
+            ? `${post.text.substring(0, MAX_LENGTH)}...`
+            : post.text
+          }
+
+          {isLongText && (
+            <span
+              onClick={() => setIsExpanded(!isExpanded)}
+              style={{ color: '#2d73bc', cursor: 'pointer', fontWeight: '500', marginLeft: '5px' }}
+            >
+              {isExpanded ? ' Свернуть' : ' Показать полностью'}
+            </span>
+          )}
+        </div>
+
+        {/* ТЭГИ КАТЕГОРИИ */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+          {Array.isArray(post.industry) ? post.industry.map(ind => (
+            <span key={ind.id} style={{ fontSize: '12px', color: '#818c99', background: '#f2f3f5', padding: '2px 6px', borderRadius: '4px' }}>
+              #{ind.name}
+            </span>
+          )) : post.industry && (
+            <span style={{ fontSize: '12px', color: '#818c99', background: '#f2f3f5', padding: '2px 6px', borderRadius: '4px' }}>
+              #{post.industry.name}
+            </span>
+          )}
+        </div>
+
+        {/* КАРТИНКИ */}
+        {post.images && post.images.length > 0 && (
+          <div style={{
+            display: 'grid',
+            gap: '4px',
+            gridTemplateColumns: post.images.length === 1 ? '1fr' : '1fr 1fr',
+            marginBottom: '12px',
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}>
+            {post.images.map((imgUrl, index) => (
+              <img key={index} src={imgUrl} alt="" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+            ))}
+          </div>
+        )}
+
+        {/* ФУТЕР ПОСТА */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#818c99', fontSize: '13px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <span>❤️ {post.likes_count}</span>
+            <span>👀 {post.views_count}</span>
+          </div>
+          {post.er && <span>ER: {post.er.toFixed(2)}%</span>}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div>Загрузка...</div>;
 
   return (
@@ -165,55 +256,20 @@ const App = () => {
       <SplitLayout header={<PanelHeader />}>
         <SplitCol>
           <View activePanel={activePanel}>
+
             <Panel id="feed">
               <PanelHeader>Главная</PanelHeader>
               {headerTabs}
               {categoryFilters}
               <Group>
-                {/* 1. Если посты есть — выводим их */}
                 {posts.length > 0 ? (
                   posts.map(post => (
-                    <section key={post.id} style={{ padding: '12px', borderBottom: '1px solid #ebedf0' }}>
-                      <div style={{ marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{post.text}</div>
-
-                      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                        {/* Обрати внимание: если industry это объект, а не массив, map не сработает */}
-                        {Array.isArray(post.industry) ? post.industry.map(ind => (
-                          <span key={ind.id} style={{ fontSize: '12px', color: '#818c99', background: '#f2f3f5', padding: '2px 6px', borderRadius: '4px' }}>
-                            #{ind.name}
-                          </span>
-                        )) : post.industry && (
-                          <span style={{ fontSize: '12px', color: '#818c99', background: '#f2f3f5', padding: '2px 6px', borderRadius: '4px' }}>
-                            #{post.industry.name}
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#818c99', fontSize: '13px' }}>
-                        <div>❤️ {post.likes_count}  👀 {post.views_count}</div>
-                        <div>{new Date(post.posted_at).toLocaleDateString()}</div>
-                      </div>
-                    </section>
+                    <PostItem key={post.id} post={post} />
                   ))
                 ) : (
-                  /* 2. Если постов нет и загрузка завершена — выводим заглушку */
-                  !loading && (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '40px 20px',
-                      color: '#818c99'
-                    }}>
-                      <span style={{ fontSize: '48px', marginBottom: '12px' }}>🏜️</span>
-                      <div style={{ fontSize: '16px', fontWeight: '500', color: 'var(--vkui--color_text_primary)' }}>
-                        Постов пока нет
-                      </div>
-                      <div style={{ fontSize: '14px', marginTop: '4px' }}>
-                        Попробуйте выбрать другую категорию
-                      </div>
-                    </div>
-                  )
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#818c99' }}>
+                    Постов пока нет
+                  </div>
                 )}
               </Group>
             </Panel>

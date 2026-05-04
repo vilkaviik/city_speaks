@@ -1,5 +1,5 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import select, desc
 from app.db.models import Post, Group, Industry
 
@@ -10,11 +10,13 @@ def get_posts_with_industries(db: Session):
     return db.query(Post).options(selectinload(Post.industry)).all()
 
 def get_posts(db: Session, category_ids: list[int] = None, limit: int = 50, offset: int = 0):
-    query = db.query(Post).options(selectinload(Post.industry))
+    query = db.query(Post).options(
+        selectinload(Post.industry),
+        joinedload(Post.group) 
+    )
 
     if category_ids:
         filtered_ids = [idx for idx in category_ids if idx != 0]
-        
         if filtered_ids:
             query = query.filter(Post.industry.any(Industry.id.in_(filtered_ids)))
 
@@ -22,6 +24,7 @@ def get_posts(db: Session, category_ids: list[int] = None, limit: int = 50, offs
                 .offset(offset)\
                 .limit(limit)\
                 .all()
+
 
 def get_groups(db: Session):
     return db.query(Group).all()
@@ -73,8 +76,10 @@ def create_group(db: Session, vk_data: dict, original_url: str):
     db.refresh(new_group)
     return new_group
 
-def update_group_subscribers(db: Session, group: Group, count: int):
+def update_group_subscribers(db: Session, group: Group, count: int, avatar_url: str = None):
     group.subscribers = count
+    if avatar_url:
+        group.avatar_path = avatar_url
     db.flush() 
 
 
