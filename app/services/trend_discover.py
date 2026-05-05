@@ -3,25 +3,19 @@ from sklearn.cluster import DBSCAN
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from datetime import datetime, timedelta
-from app.db.models import Post
-from app.db.models import Trend
-from app.db.models import Industry
+from app.db import crud
 import httpx
 from sqlalchemy.orm import selectinload
 
 class TrendDiscover:
-    def __init__(self, api_key, folder_id, eps=0.22, min_samples=2):
+    def __init__(self, api_key, folder_id, eps=0.18, min_samples=3):
         self.model = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine')
         self.api_key = api_key
         self.folder_id = folder_id
 
     async def discover_trends(self, db: Session):
         time_threshold = datetime.utcnow() - timedelta(hours=24)
-        posts = db.query(Post).filter(
-            Post.created_at >= time_threshold,
-            Post.embedding != None,
-            Post.trends == None
-        ).all()
+        posts = crud.get_unprocessed_posts(db, time_threshold, 100)
 
         if not posts:
             print("Нет новых постов для анализа")
@@ -56,11 +50,11 @@ class TrendDiscover:
 
             if existing_trend:
                 trend_id = existing_trend[0]
-                target_trend = db.query(Trend).get(trend_id)
+                target_trend = crud.get_trend_by_id(db, trend_id)
                 
                 all_embeddings = [p.embedding for p in target_trend.posts] + [p.embedding for p in cluster_posts]
                 new_centroid = np.mean(all_embeddings, axis=0).tolist()
-                target_trend.centroid = str(new_centroid)
+                target_trend.centroid = new_centroid
                 
                 target_trend.updated_at = datetime.utcnow()
                 print(f"Добавляю посты в существующий тренд: {target_trend.name}")
@@ -71,10 +65,19 @@ class TrendDiscover:
 
             else:
                 print(f"Создаю новый тренд...")
-                now = datetime.utcnow()
-                
+
+                refusal_phrases = [
+                    "я не могу обсуждать эту тему",
+                    "давайте поговорим о чём-нибудь ещё",
+                    "я не могу на это ответить"
+                    ]
+
                 industry_id = cluster_posts[0].industry_id if cluster_posts else None
+                
                 trend_title = await self._generate_llm_title(cluster_posts)
+                if not trend_title or any(phrase in trend_title.lower() for phrase in refusal_phrases):
+                    print(f"Тренд пропущен: ИИ отказался генерировать название.")
+                    continue 
 
                 post_ers = [p.er for p in cluster_posts if p.er is not None]
 
@@ -83,13 +86,12 @@ class TrendDiscover:
                 else:
                     trend_er = 0.0
 
-                new_trend = Trend(
-                    name = trend_title, 
+                new_trend = crud.create_trend(
+                    db = db,
+                    trend_title = trend_title, 
                     centroid = centroid, 
-                    discovered_at = now,
-                    updated_at = now, 
                     industry_id = industry_id,
-                    er = trend_er
+                    trend_er = trend_er
                 )
                 
                 for p in cluster_posts:

@@ -1,28 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import {
   AppRoot,
-  SplitLayout,
-  SplitCol,
+  SplitLayout, SplitCol,
   View,
-  Panel,
-  PanelHeader,
+  Panel, PanelHeader, Header,
+  Switch, HorizontalScroll, IconButton,
+  FormItem, Input, Button, Spacing,
   Group,
-  SimpleCell,
+  SimpleCell, Cell,
   Avatar,
-  Tabs,
-  TabsItem,
+  Tabs, TabsItem,
   Tappable,
   Caption,
   Footnote,
-  HorizontalScroll,
-  Cell,
-  List, Link
+  List, Link,
 } from '@vkontakte/vkui';
 import {
-  Icon16Like,
-  Icon16View,
-  Icon24ChevronDown,
-  Icon24ChevronUp
+  Icon16Like, Icon16View,
+  Icon24ChevronDown, Icon24ChevronUp,
+  Icon28AddOutline, Icon24CheckCircleOn
 } from '@vkontakte/icons';
 import '@vkontakte/vkui/dist/vkui.css';
 
@@ -32,8 +28,36 @@ const App = () => {
   const [selectedCategories, setSelectedCategories] = useState([0]);
   const [expandedTrend, setExpandedTrend] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [trends, setTrends] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [newGroupUrl, setNewGroupUrl] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [sortBy, setSortBy] = useState('new');
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/groups`);
+        if (response.ok) {
+          const data = await response.json();
+          setGroups(data);
+        } else {
+          console.error('Ошибка при загрузке групп');
+        }
+      } catch (error) {
+        console.error('Ошибка сети:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchGroups();
+  }, []);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -65,7 +89,6 @@ const App = () => {
       try {
         const response = await fetch(`${API_URL}/categories`);
         const data = await response.json();
-        console.log("Данные из БД:", data);
         setCategories([{ id: 0, name: "Все" }, ...data]);
       } catch (error) {
         console.error("Ошибка при загрузке категорий:", error);
@@ -74,6 +97,23 @@ const App = () => {
 
     fetchCategories();
   }, []);
+
+  const fetchTrends = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/trends`);
+      if (!response.ok) throw new Error('Ошибка при загрузке трендов');
+
+      const data = await response.json();
+      setTrends(data.trends || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchTrends(); }, []);
 
   const toggleCategory = (id) => {
     setSelectedCategories((prev) => {
@@ -92,30 +132,6 @@ const App = () => {
       return next.length === 0 ? [0] : next;
     });
   };
-
-  const [trendsData] = useState([
-    {
-      id: 'holiday',
-      name: "# Праздник",
-      likes: "2.4K",
-      views: "150K",
-      er: "4.2%",
-      posts: [
-        { id: 101, author: "Марина", text: "Как украсить дом к празднику?", likes: 45, views: 1200, er: "1.5%" },
-        { id: 102, author: "Декор-Блог", text: "Топ 10 идей для гирлянд.", likes: 89, views: 3000, er: "2.8%" }
-      ]
-    },
-    {
-      id: 'kitchen',
-      name: "# Кухня",
-      likes: "1.8K",
-      views: "98K",
-      er: "3.5%",
-      posts: [
-        { id: 201, author: "Шеф", text: "Рецепт идеального омлета за 5 минут.", likes: 230, views: 15000, er: "5.1%" }
-      ]
-    }
-  ]);
 
   const headerTabs = (
     <Tabs>
@@ -249,6 +265,164 @@ const App = () => {
     );
   };
 
+
+  const TrendPostCard = ({ post }) => {
+    const [isFullText, setIsFullText] = useState(false);
+    const formattedDate = new Date(post.date).toLocaleString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const goToGroup = (e) => {
+      e.stopPropagation();
+      if (post.group?.url) {
+        window.open(post.group.url, '_blank');
+      }
+    };
+
+    return (
+      <div style={{
+        background: 'var(--vkui--color_background_content)',
+        borderRadius: '10px',
+        marginBottom: '8px',
+        border: '1px solid var(--vkui--color_separator_primary)'
+      }}>
+        <SimpleCell
+          before={
+            <Tappable onClick={goToGroup} style={{ borderRadius: '50%' }}>
+              <Avatar
+                size={32}
+                src={post.group?.avatar_path}
+                fallbackCharacter={post.group?.name?.[0]}
+              />
+            </Tappable>
+          }
+          description={formattedDate}
+        >
+          <span
+            onClick={goToGroup}
+            style={{ fontWeight: 600, cursor: 'pointer', color: 'var(--vkui--color_text_primary)' }}
+          >
+            {post.group?.name || 'Источник'}
+          </span>
+        </SimpleCell>
+
+
+        <div style={{ padding: '0 16px 12px 16px' }}>
+          <Footnote
+            onClick={() => setIsFullText(!isFullText)}
+            style={{
+              cursor: 'pointer',
+              display: '-webkit-box',
+              WebkitLineClamp: isFullText ? 'unset' : 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              lineHeight: '18px',
+              whiteSpace: 'pre-wrap',
+              color: 'var(--vkui--color_text_primary)'
+            }}
+          >
+            {post.text}
+          </Footnote>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginTop: '10px',
+            alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Caption style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--vkui--color_text_secondary)' }}>
+                <Icon16Like width={14} /> 0
+              </Caption>
+              <Caption style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--vkui--color_text_secondary)' }}>
+                <Icon16View width={14} /> 0
+              </Caption>
+            </div>
+
+            <Caption weight="2" style={{ color: 'var(--vkui--color_accent_blue)' }}>
+              ER: {(post.er * 100).toFixed(4)}%
+            </Caption>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const TrendsPanel = ({ id }) => {
+    const [expandedTrend, setExpandedTrend] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    return (
+      <Panel id={id}>
+        <PanelHeader>Город Говорит</PanelHeader>
+
+        {loading && <Spinner size="large" style={{ marginTop: 20 }} />}
+
+        {error && (
+          <Placeholder icon={<Icon56ErrorOutline fill="var(--vkui--color_icon_critical)" />} header="Ошибка">
+            {error}
+          </Placeholder>
+        )}
+        {!loading && !error && (
+          <Group>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px' }}>
+              {trends.map((trend) => (
+                <React.Fragment key={trend.id}>
+                  {/* Карточка тренда */}
+                  <Tappable onClick={() => setExpandedTrend(expandedTrend === trend.id ? null : trend.id)}>
+                    <b>{trend.name}</b>
+                    {/* ... остальная разметка тренда ... */}
+                  </Tappable>
+
+                  {expandedTrend === trend.id && (
+                    <div style={{ gridColumn: '1 / -1', padding: '8px 0' }}>
+                      {trend.posts.map(post => (
+                        <TrendPostCard key={post.id} post={post} />
+                      ))}
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </Group>
+        )}
+      </Panel>
+    );
+  };
+
+  const toggleItem = (id, list, setList, key) => {
+    const newList = list.includes(id)
+      ? list.filter(item => item !== id)
+      : [...list, id];
+    setList(newList);
+    localStorage.setItem(key, JSON.stringify(newList));
+  };
+
+  const handleAddGroup = async () => {
+    if (!groupUrl) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_URL}/groups/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: newGroupUrl }),
+      });
+
+      if (response.ok) {
+        setNewGroupUrl('');
+        console.log("Группа успешно добавлена");
+      }
+    } catch (error) {
+      console.error("Ошибка при добавлении группы:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) return <div>Загрузка...</div>;
 
   return (
@@ -258,7 +432,7 @@ const App = () => {
           <View activePanel={activePanel}>
 
             <Panel id="feed">
-              <PanelHeader>Главная</PanelHeader>
+              <PanelHeader>Город Говорит</PanelHeader>
               {headerTabs}
               {categoryFilters}
               <Group>
@@ -274,65 +448,137 @@ const App = () => {
               </Group>
             </Panel>
 
+
             <Panel id="trends">
-              <PanelHeader>Поиск</PanelHeader>
+              <PanelHeader>Город Говорит</PanelHeader>
               {headerTabs}
               {categoryFilters}
               <Group>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px' }}>
-                  {trendsData.map((trend) => (
-                    <React.Fragment key={trend.id}>
-                      {/* Карточка тренда */}
-                      <Tappable
-                        onClick={() => setExpandedTrend(expandedTrend === trend.id ? null : trend.id)}
-                        style={{
-                          background: 'var(--vkui--color_background_secondary)',
-                          padding: '16px',
-                          borderRadius: '12px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          border: expandedTrend === trend.id ? '1px solid var(--vkui--color_accent_blue)' : 'none'
-                        }}
-                      >
-                        <b style={{ fontSize: '16px' }}>{trend.name}</b>
-                        <Caption level="2" style={{ color: 'var(--vkui--color_text_secondary)', marginTop: '4px', display: 'flex', gap: '6px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center' }}><Icon16Like width={12} />{trend.likes}</span>
-                          <span style={{ display: 'flex', alignItems: 'center' }}><Icon16View width={12} />{trend.views}</span>
-                        </Caption>
-                        <Caption level="2" weight="2" style={{ color: 'var(--vkui--color_accent_blue)', marginTop: '2px' }}>ER: {trend.er}</Caption>
-                        {expandedTrend === trend.id ? <Icon24ChevronUp fill="gray" /> : <Icon24ChevronDown fill="gray" />}
-                      </Tappable>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '8px',
+                  padding: '8px'
+                }}>
+                  {trends.map((trend) => {
+                    const isExpanded = expandedTrend === trend.id;
 
-                      {/* Список постов под трендом */}
-                      {expandedTrend === trend.id && (
-                        <div style={{ gridColumn: '1 / -1', padding: '8px 0' }}>
-                          {trend.posts.map(post => (
-                            <div key={post.id} style={{ background: 'var(--vkui--color_background_content)', borderRadius: '10px', marginBottom: '8px', border: '1px solid var(--vkui--color_separator_primary)' }}>
-                              <SimpleCell before={<Avatar size={28} />}>{post.author}</SimpleCell>
-                              <div style={{ padding: '0 16px 12px 16px' }}>
-                                <Footnote>{post.text}</Footnote>
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '8px', color: 'var(--vkui--color_text_secondary)' }}>
-                                  <Caption style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><Icon16Like />{post.likes}</Caption>
-                                  <Caption style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><Icon16View />{post.views}</Caption>
-                                  <Caption>ER: {post.er}</Caption>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </React.Fragment>
-                  ))}
+                    return (
+                      <React.Fragment key={trend.id}>
+                        {/* Карточка тренда */}
+                        <Tappable
+                          onClick={() => setExpandedTrend(isExpanded ? null : trend.id)}
+                          style={{
+                            background: 'var(--vkui--color_background_secondary)',
+                            padding: '16px',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            textAlign: 'center',
+                            border: isExpanded ? '1px solid var(--vkui--color_accent_blue)' : 'none'
+                          }}
+                        >
+                          <b style={{ fontSize: '14px', lineHeight: '18px' }}>{trend.name}</b>
+
+                          <Caption level="2" style={{ color: 'var(--vkui--color_text_secondary)', marginTop: '4px' }}>
+                            Постов: {trend.posts_count}
+                          </Caption>
+
+                          <Caption level="2" weight="2" style={{ color: 'var(--vkui--color_accent_blue)', marginTop: '2px' }}>
+                            ER: {(trend.er * 100).toFixed(4)}%
+                          </Caption>
+
+                          <div style={{ marginTop: 4 }}>
+                            {isExpanded ? <Icon24ChevronUp fill="gray" width={20} /> : <Icon24ChevronDown fill="gray" width={20} />}
+                          </div>
+                        </Tappable>
+
+                        {/* Список постов под трендом */}
+                        {isExpanded && (
+                          <div style={{ gridColumn: '1 / -1', padding: '8px 0' }}>
+                            {trend.posts.map((post) => (
+                              <TrendPostCard key={post.id} post={post} />
+                            ))}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
               </Group>
             </Panel>
 
             <Panel id="settings">
-              <PanelHeader>Параметры</PanelHeader>
+              <PanelHeader>Настройки</PanelHeader>
               {headerTabs}
-              <Group>
-                <SimpleCell before={<Avatar />}>Пользователь</SimpleCell>
+
+              <Group header={<Header mode="primary">Источники</Header>}>
+
+                {/* Горизонтальный список аватарок */}
+                {groups.length > 0 && (
+                  <HorizontalScroll showArrows getScrollToLeft={(i) => i - 120} getScrollToRight={(i) => i + 120}>
+                    <div style={{ display: 'flex', padding: '10px 0' }}>
+                      {groups.map((group) => (
+                        <div
+                          key={group.id}
+                          style={{
+                            flexShrink: 0,
+                            width: 80,
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Avatar size={48} src={group.avatar_path} alt={group.title} />
+                          <div
+                            style={{
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              width: '100%',
+                              padding: '0 4px',
+                              color: 'var(--vkui--color_text_secondary)'
+                            }}
+                          >
+                            {group.title}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </HorizontalScroll>
+                )}
+
+                <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }}>
+                  <FormItem
+                    top="Добавить новую группу"
+                    bottom="Вставьте ссылку, например: https://vk.com"
+                  >
+                    <Input
+                      type="url"
+                      placeholder="https://vk.com..."
+                      value={newGroupUrl}
+                      onChange={(e) => setNewGroupUrl(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </FormItem>
+
+                  <FormItem>
+                    <Button
+                      size="l"
+                      stretched
+                      type="submit"
+                      loading={isSubmitting}
+                      disabled={!newGroupUrl.trim()}
+                    >
+                      Добавить группу
+                    </Button>
+                  </FormItem>
+                </form>
               </Group>
             </Panel>
 

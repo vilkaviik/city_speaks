@@ -49,13 +49,15 @@ def get_all_posts(
     limit: int = 50, 
     offset: int = 0, 
     category_ids: List[int] = Query(None), 
+    sort: str = "new",
     db: Session = Depends(session.get_db)
 ):
     return crud.get_posts(
         db, 
         category_ids=category_ids, 
         limit=limit, 
-        offset=offset
+        offset=offset,
+        sort=sort
     )
 
 @app.get("/groups", response_model=List[schemas.GroupSchema])
@@ -86,35 +88,42 @@ async def run_analysis(background_tasks: BackgroundTasks):
     }
 
 # Route to list trends
-@app.post("/trends")
+@app.get("/trends")
 async def trends_discover(db: Session = Depends(session.get_db)):
 
-    trends = db.query(Trend).options(joinedload(Trend.industry)).all()
-    result = []
+    trends = db.query(Trend).options(
+        joinedload(Trend.industry),
+        joinedload(Trend.posts).joinedload(Post.group) 
+    ).all()
 
+    result = []
     for trend in trends:
         related_posts = trend.posts
         #industry_names = [ind.name for ind in trend.industry]
         result.append({
-            "ID тренда": trend.id,
-            "Название": trend.name,
-            "Вовлеченность": trend.er,
-            #"Категория": industry_names,
-            "Количество постов": len(related_posts),
-            "Посты": [
+            "id": trend.id,
+            "name": trend.name,
+            "er": trend.er,
+            "industry": [{"id": ind.id, "name": ind.name} for ind in trend.industry] if trend.industry else [],
+            "post_count": len(related_posts),
+            "posts": [
                 {
-                    "ID поста": p.id, 
-                    "Текст": p.text[:100] + "...",
-                    "Источник": p.group.title,
-                    "Вовлеченность": p.er,
-                    "Дата": p.posted_at
-                } for p in related_posts
+                    "id": p.id, 
+                    "text": p.text, 
+                    "er": p.er,
+                    "date": p.posted_at.isoformat(), 
+                    "group": {
+                        "name": p.group.title,
+                        "url": p.group.url,
+                        "avatar_path": p.group.avatar_path
+                    }
+                } for p in trend.posts
             ]
         })
 
     return {
-    "Количество трендов": len(result),
-    "Тренды": result
+        "trends_count": len(result),
+        "trends": result
     }
 
 @app.get("/Посты с категориями")

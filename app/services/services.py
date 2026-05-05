@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-from app.db.models import Group
 import httpx
 import logging
 

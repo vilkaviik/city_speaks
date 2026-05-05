@@ -1,10 +1,10 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import select, desc
-from app.db.models import Post, Group, Industry
+from app.db.models import Post, Group, Industry, Trend
+from datetime import datetime
 
-def get_group_by_screen_name(db: Session, screen_name: str):
-    return db.query(Group).filter(Group.screen_name == screen_name).first()
+## POSTS
 
 def get_posts_with_industries(db: Session):
     return db.query(Post).options(selectinload(Post.industry)).all()
@@ -24,13 +24,6 @@ def get_posts(db: Session, category_ids: list[int] = None, limit: int = 50, offs
                 .offset(offset)\
                 .limit(limit)\
                 .all()
-
-
-def get_groups(db: Session):
-    return db.query(Group).all()
-
-def get_all_industries(db: Session):
-    return db.query(Industry).all()
 
 def add_post(db: Session, group_id: int, message_id: int, post_payload: dict):
     exists = db.query(Post).filter(
@@ -59,9 +52,22 @@ def update_post(db: Session, post: Post, **kwargs):
     db.add(post)
     return post
 
+## INDUSTRIES
+
+def get_all_industries(db: Session):
+    return db.query(Industry).all()
+
 def add_industry_to_post(db: Session, post: Post, industry: Industry):
     post.industry.append(industry)
     db.add(post)
+
+## GROUPS
+
+def get_groups(db: Session):
+    return db.query(Group).all()
+
+def get_group_by_screen_name(db: Session, screen_name: str):
+    return db.query(Group).filter(Group.screen_name == screen_name).first()
 
 def create_group(db: Session, vk_data: dict, original_url: str):
     new_group = Group(
@@ -81,6 +87,46 @@ def update_group_subscribers(db: Session, group: Group, count: int, avatar_url: 
     if avatar_url:
         group.avatar_path = avatar_url
     db.flush() 
+
+## TRENDS
+
+def get_trend_by_id(db: Session, trend_id: int):
+    return db.get(Trend, trend_id)
+
+def create_trend(
+    db: Session, 
+    trend_title: str, 
+    centroid: str, 
+    industry_id: int, 
+    trend_er: float
+):
+    now = datetime.utcnow()
+    
+    new_trend = Trend(
+        name=trend_title, 
+        centroid=centroid, 
+        discovered_at=now,
+        updated_at=now, 
+        industry_id=industry_id,
+        er=trend_er
+    )
+    
+    try:
+        db.add(new_trend)      
+        db.commit()            
+        db.refresh(new_trend)  
+        return new_trend
+    except Exception as e:
+        db.rollback()          
+        print(f"Ошибка при создании тренда: {e}")
+        raise e
+
+def get_unprocessed_posts(db: Session, time_threshold: datetime, limit: int = 100):
+    return db.query(Post).filter(
+        Post.created_at >= time_threshold,
+        Post.embedding.isnot(None),
+        Post.trends == None
+    ).limit(limit).all()
 
 
 
