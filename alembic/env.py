@@ -1,4 +1,5 @@
 import sys
+import os
 from os.path import abspath, dirname
 
 from logging.config import fileConfig
@@ -36,7 +37,7 @@ target_metadata = Base.metadata
 
 from app.db.session import DATABASE_URL
 
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option('sqlalchemy.url', os.environ.get('DATABASE_URL'))
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -51,6 +52,7 @@ def run_migrations_offline() -> None:
 
     """
     url = config.get_main_option("sqlalchemy.url")
+    
     context.configure(
         url=url,
         target_metadata=target_metadata,
