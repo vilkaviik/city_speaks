@@ -22,7 +22,7 @@ import {
 import '@vkontakte/vkui/dist/vkui.css';
 
 const App = () => {
-  const API_URL = "http://127.0.0.1:8000";
+  const API_URL = "https://vilkaviik-city-speaks-d987.twc1.net";
   const [activePanel, setActivePanel] = useState('feed');
   const [snackbar, setSnackbar] = useState(null);
 
@@ -699,7 +699,7 @@ const App = () => {
 
 
   const renderExportBlock = () => {
-    const API_BASE = "http://localhost:8000";
+    const API_BASE = "https://vilkaviik-city-speaks-d987.twc1.net";
 
     const handleDownload = (format) => {
       window.open(`${API_BASE}/export/trends/${format}`, '_blank');
