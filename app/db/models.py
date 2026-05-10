@@ -1,5 +1,6 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, BigInteger, UniqueConstraint, Float
+import enum
+from datetime import datetime, timedelta
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, BigInteger, UniqueConstraint, Float, Enum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from app.db.base import Base
@@ -18,7 +19,6 @@ trend_post = Table(
     Column("trend_id", Integer, ForeignKey("trends.id", ondelete="CASCADE"), primary_key=True),
     Column("post_id", Integer, ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True),
 )
-
 
 class Group(Base):
     __tablename__ = "groups"
@@ -75,7 +75,6 @@ class Post(Base):
         UniqueConstraint('message_id', 'group_id', name='_group_message_uc'),
     )
 
-
 class Trend(Base):
     __tablename__ = "trends"
 
@@ -86,6 +85,9 @@ class Trend(Base):
     discovered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
     er = Column(Float, default=0)
+    timespan = Column(String(10), nullable=False, default="24h", index=True)
+
+    is_active = Column(Boolean, default=True, index=True) 
 
     industry = relationship("Industry", back_populates="trends")
     posts = relationship("Post", secondary=trend_post, back_populates="trends")

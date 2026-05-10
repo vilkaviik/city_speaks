@@ -6,6 +6,6 @@ def get_post_metrics(post_data):
 
     owner_id = post_data.get("owner_id")
     post_id = post_data.get("id")
-    url = f"https://vk.com{owner_id}_{post_id}"
+    url = f"https://vk.com/wall{owner_id}_{post_id}"
 
     return likes, views, url

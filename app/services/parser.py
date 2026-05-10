@@ -1,4 +1,3 @@
-import os
 import logging
 import httpx
 import uuid
@@ -8,10 +7,9 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import crud
 
-from app.services.metrics_counter import get_post_metrics
+from app.services import metrics_counter
 
 class VKParser:
     def __init__(self, service_token: str):
@@ -47,11 +45,12 @@ class VKParser:
                     )
 
                     clean_owner_id = -abs(int(group.vk_id))
+
                     params = {
                         "owner_id": clean_owner_id,
                         "access_token": self.token.strip(),
                         "v": self.api_version,
-                        "count": 5
+                        "count": 50
                     }
                 
                     response = await client.get(
@@ -67,7 +66,7 @@ class VKParser:
                         if post_date < time_threshold or not post.get("text"):
                             continue
 
-                        likes, views, post_url = get_post_metrics(post)
+                        likes, views, post_url = metrics_counter.get_post_metrics(post)
                         er_value = (likes / group.subscribers * 100) if group.subscribers > 0 else 0
 
                         image_urls = []
@@ -103,21 +102,6 @@ class VKParser:
                     traceback.print_exc()
                     db.rollback()
                     continue
-
-    async def save_group_avatar(url: str) -> str:
-        storage_dir = Path("storage/profile_pics")
-        storage_dir.mkdir(parents=True, exist_ok=True)
-
-        filename = f"{uuid.uuid4()}.jpg"
-        filepath = storage_dir / filename
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
-            if response.status_code == 200:
-                with open(filepath, "wb") as f:
-                    f.write(response.content)
-                return filename
-        return None
 
     async def get_all_subscribers(self, client: httpx.AsyncClient, screen_names: list) -> dict:
         try:

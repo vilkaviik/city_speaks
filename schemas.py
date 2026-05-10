@@ -9,18 +9,21 @@ class IndustrySchema(BaseModel):
     description : str
     class Config:
         from_attributes = True
+        
+class IndustryCreateRequest(BaseModel):
+    name: str
+    description: str
 
 class GroupSchema(BaseModel):
     id: int
     screen_name: str
     title: str
     url: str
-    avatar_path: str
+    avatar_path: Optional[str] = None
     subscribers : int
 
     class Config:
         from_attributes = True
-
 
 class PostSchema(BaseModel):
     id: int
@@ -64,12 +67,17 @@ class TrendDebugSchema(BaseModel):
     name: str 
     discovered_at: datetime
     er : float
-    posts_count: int
+    is_active: bool
+    # posts_count: int
     posts: List[PostInTrendSchema]
-    industry: List[IndustrySchema] = []
+    industry: Optional[IndustrySchema] = None
     
     class Config:
         from_attributes = True
 
 class GroupAddRequest(BaseModel):
     url: str  
+
+class PromptUpdate(BaseModel):
+    new_prompt: str
+    new_temperature: float = 0.3

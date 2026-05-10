@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     YANDEX_API_KEY: str | None = None
     VK_APP_ID : str | None = None 
     VK_TOKEN : str | None = None
+    TREND_NAMING_PROMPT : str | None = None
+    TREND_TEXT_TEMPLATES : str | None = None
+    DEFAULT_PROMPT : str | None = None
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),

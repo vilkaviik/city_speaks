@@ -1,6 +1,5 @@
 import numpy as np
 import requests
-import os
 
 class TextEmbedder:
     def __init__(self, folder_id: str, api_key: str):

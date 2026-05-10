@@ -1,20 +1,11 @@
 import httpx
 from typing import List
 
-from requests import Session
-
-from app.services.data_analysis.preprocessing import TextCleaner
-from app.services.data_analysis.preprocessing import TextProcessor
-from app.services.data_analysis.embedder import TextEmbedder
-from app.services.trend_discover import TrendDiscover
-
-from sqlalchemy.orm import Session
-from app.db.models import Post
-from app.db.models import Industry
-from sqlalchemy.orm import selectinload
-from sqlalchemy.future import select
 from app.db.session import SessionLocal
 from app.db import crud
+
+from app.services.data_analysis import preprocessing, embedder
+from app.services import trend_discover
 
 class AnalysisPipeline:
     def __init__(self, folder_id: str, api_key: str):
@@ -22,9 +13,10 @@ class AnalysisPipeline:
         self.api_key = api_key
         self.url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
-        self.cleaner = TextCleaner()
-        self.processor = TextProcessor()
-        self.embedder = TextEmbedder(folder_id, api_key)
+        self.cleaner = preprocessing.TextCleaner()
+        self.processor = preprocessing.TextProcessor()
+        self.embedder = embedder.TextEmbedder(folder_id, api_key)
+        self.trend_service = trend_discover.TrendDiscover(self.api_key, self.folder_id)
         
     async def process_new_posts(self):
         db = SessionLocal() 
@@ -55,24 +47,24 @@ class AnalysisPipeline:
 
             if not post.industry:
                 print(f"Определяю категорию поста")
-                predicted_name = await self._classify_industry(post.text, industry_names)
+                predicted_category = await self._classify_industry(post.text, industry_names)
                 
-                print(f"DEBUG: LLM вернула '{predicted_name}'. Доступные в базе: {industry_names}")
+                print(f"DEBUG: LLM вернула '{predicted_category}'")
 
-                industry_obj = next((i for i in all_industries if i.name == predicted_name), None)
+                industry_obj = next((i for i in all_industries if i.name == predicted_category), None)
 
                 if industry_obj:
                     post.industry.append(industry_obj)
-                    print(f"Присваиваю категорию {predicted_name} посту {post.id}")
+                    post.industry_id = industry_obj.id
+                    print(f"Присваиваю категорию {predicted_category} посту {post.id}")
                 else:
-                    print(f"Не удалось сопоставить ответ LLM '{predicted_name}' ни с одной индустрией из базы")
+                    print(f"Не удалось сопоставить ответ LLM '{predicted_category}' ни с одной индустрией из базы")
             
             crud.save_post(db, post)
              
         db.commit()
+        print("Цикл завершен")
 
-        trend_service = TrendDiscover(self.api_key, self.folder_id)
-        await trend_service.discover_trends(db)
 
     async def _classify_industry(self, text: str, industries: List[str]) -> str:
         # Список индустрий
