@@ -38,7 +38,8 @@ MODELS_MAP = {
 }
 
 origins = [
-    "http://localhost:5173",
+    "https://vilkaviik-city-speaks-d987.twc1.net",
+    "http://localhost:3000",
     "https://vk-apps.com", 
     "https://vk.com",
 ]
