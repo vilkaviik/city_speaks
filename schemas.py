@@ -1,6 +1,6 @@
 from typing import Optional, List
-from pydantic import BaseModel, field_validator, HttpUrl
-from datetime import datetime
+from pydantic import BaseModel, field_validator, HttpUrl, field_serializer
+from datetime import datetime, timezone, timedelta
 import numpy as np
 
 class IndustrySchema(BaseModel):
@@ -25,6 +25,8 @@ class GroupSchema(BaseModel):
     class Config:
         from_attributes = True
 
+KRASNOYARSK_TZ = timezone(timedelta(hours=7))
+
 class PostSchema(BaseModel):
     id: int
     group_id: int
@@ -42,6 +44,10 @@ class PostSchema(BaseModel):
     industry: List[IndustrySchema] = []
     group: GroupSchema
 
+    model_config = {
+        "from_attributes": True
+    }
+
     @field_validator("embedding", mode="before")
     @classmethod
     def limit_vector(cls, v):
@@ -50,10 +56,6 @@ class PostSchema(BaseModel):
                 return v[:5].tolist()
             return list(v)[:5]
         return []
-    
-    class Config:
-        from_attributes = True
-
 
 class PostInTrendSchema(BaseModel):
     id: int

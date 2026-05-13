@@ -19,7 +19,9 @@ class VKParser:
 
     async def parse_multiple_groups(self, group_urls: list, db: Session):
         print(f"DEBUG: START PARSING. URLS: {group_urls}") 
-        time_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
+        KRASNOYARSK_TZ = timezone(timedelta(hours=7))
+        time_threshold = (datetime.now(KRASNOYARSK_TZ) - timedelta(hours=24)).replace(tzinfo=None)
+
         async with httpx.AsyncClient() as client:
 
             screen_names = [url.strip('/').split('/')[-1] for url in group_urls]
@@ -60,15 +62,18 @@ class VKParser:
                     
                     data = response.json()
                     posts = data["response"]["items"]
+                    KRASNOYARSK_TZ = timezone(timedelta(hours=7))
 
                     for post in posts:
-                        post_date = datetime.fromtimestamp(post["date"], tz=timezone.utc)
-                        if post_date < time_threshold or not post.get("text"):
+                        post_date_naive = datetime.fromtimestamp(post["date"], tz=KRASNOYARSK_TZ).replace(tzinfo=None)
+                        
+                        if post_date_naive < time_threshold or not post.get("text"):
                             continue
-
+                        
                         likes, views, post_url = metrics_counter.get_post_metrics(post)
-                        er_value = (likes / group.subscribers * 100) if group.subscribers > 0 else 0
-
+                        er_value = (likes / views * 100) if views > 0 else 0
+                        print(f"DEBUG ER: {er_value} (likes: {likes}, views: {views})")
+                        
                         image_urls = []
                         if "attachments" in post:
                             for att in post["attachments"]:
@@ -79,7 +84,7 @@ class VKParser:
 
                         post_payload = {
                         "text": post["text"],
-                        "posted_at": post_date,
+                        "posted_at": post_date_naive,
                         "likes_count": likes,
                         "views_count": views,
                         "url": post_url, 

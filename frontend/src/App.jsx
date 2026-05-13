@@ -22,6 +22,8 @@ import {
 import '@vkontakte/vkui/dist/vkui.css';
 
 const App = () => {
+
+
   const API_URL = "https://vilkaviik-city-speaks-d987.twc1.net";
   const [activePanel, setActivePanel] = useState('feed');
   const [snackbar, setSnackbar] = useState(null);
@@ -84,6 +86,15 @@ const App = () => {
     subscribers: { label: "Подписчики", desc: "Количество участников сообщества" },
     vk_id: { label: "VK ID", desc: "Уникальный идентификатор сообщества ВКонтакте" }
   };
+  const krasnoyarskFormatter = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Asia/Krasnoyarsk',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
 
   const TABLES_CONFIG = {
     trends: ['id', 'name', 'er', 'timespan', 'industry_id', 'is_active', 'discovered_at'],
@@ -270,6 +281,23 @@ const App = () => {
       </HorizontalScroll>
     </Group>
   );
+  function YourComponent({ post }) {
+    // === ВСТАВЛЯЙТЕ СЮДА (ДО RETURN) ===
+    console.log('--- ДИАГНОСТИКА ВРЕМЕНИ ---');
+    console.log('1. Исходная строка из JSON:', post?.posted_at);
+    console.log('2. Таймстамп (Unix ms):', new Date(post?.posted_at).getTime());
+    console.log('3. Системное время браузера:', new Date().toString());
+    console.log('4. Смещение вашего JS (в минутах):', new Date().getTimezoneOffset());
+    try {
+      const testFormat = krasnoyarskFormatter.format(new Date(post?.posted_at));
+      console.log('5. Тест Intl (Красноярск):', testFormat);
+    } catch (e) {
+      console.log('5. Ошибка Intl:', e.message);
+    }
+    console.log('---------------------------');
+  }
+  // ====================================
+
 
   const PostItem = ({ post }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -307,13 +335,18 @@ const App = () => {
                 rel="noreferrer"
                 style={{ color: '#818c99', textDecoration: 'none' }}
               >
-                {new Date(post.posted_at).toLocaleString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                })}
+
+                {(() => {
+                  const krskDate = new Date(`${post.posted_at}+07:00`);
+
+                  return krskDate.toLocaleString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                  });
+                })()}
               </a>
             </div>
           </div>
@@ -386,7 +419,7 @@ const App = () => {
             <span>Нравится {post.likes_count}</span>
             <span>Просмотрено {post.views_count}</span>
           </div>
-          {post.er && <span>Вовлеченность: {(post.er * 100).toFixed(4)}%</span>}
+          {post.er && <span>Вовлеченность: {post.er.toFixed(2)}%</span>}
         </div>
       </div>
     );
@@ -477,7 +510,7 @@ const App = () => {
 
             <Caption weight="2" style={{ color: 'var(--vkui--color_accent_blue)', textAlign: 'right' }}>
               <div>Вовлеченность:</div>
-              <div>{(post.er * 100).toFixed(4)}%</div>
+              <div>{post.er.toFixed(2)}%</div>
             </Caption>
           </div>
         </div>
@@ -789,7 +822,7 @@ const App = () => {
           <FormItem label="Выберите поля для выгрузки">
             <Div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
               gap: '16px',
               padding: 0
             }}>
@@ -801,7 +834,7 @@ const App = () => {
                     checked={selectedFields.includes(field)}
                     onChange={() => toggleField(field)}
                     style={{
-                      alignItems: 'center', 
+                      alignItems: 'center',
                       display: 'flex',
                       padding: '4px 0'
                     }}
@@ -965,7 +998,7 @@ const App = () => {
                             </Caption>
 
                             <Caption level="2" weight="2" style={{ color: 'var(--vkui--color_accent_blue)', marginTop: '2px' }}>
-                              Вовлеченность: {(trend.er * 100).toFixed(4)}%
+                              Вовлеченность: {trend.er.toFixed(2)}%
                             </Caption>
 
                             <div style={{ marginTop: 4 }}>

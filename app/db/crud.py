@@ -24,12 +24,15 @@ def get_posts(db: Session, category_ids: list[int] = None, group_ids: list[int] 
         query = query.filter(Post.group_id.in_(group_ids))
 
     if sort == "top":
-        query = query.order_by(Post.er.desc())
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+
+        query = query.filter(Post.posted_at >= seven_days_ago)\
+                     .order_by(desc(Post.likes_count))
+
     else:
         query = query.order_by(Post.posted_at.desc())
 
-    return query.order_by(desc(Post.created_at))\
-                .offset(offset)\
+    return query.offset(offset)\
                 .limit(limit)\
                 .all()
 
