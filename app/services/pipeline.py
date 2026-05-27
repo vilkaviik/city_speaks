@@ -33,8 +33,13 @@ class AnalysisPipeline:
             print(f"DEBUG: Пост {post.id}, индустрии в объекте: {post.industry}")
 
             if not post.cleaned_text:
-                post.cleaned_text = self.cleaner.clean(post.text)
                 print(f"У поста {post.id} не было очистки. Делаю очистку")
+                cleaned = self.cleaner.clean(post.text)
+
+                if not cleaned:
+                    print(f"DEBUG: Пост {post.id} помечен как мусорный (слишком короткий)")
+                    continue 
+                post.cleaned_text = cleaned
 
             if not post.normalized_text:
                 post.normalized_text = self.processor.lemmatize(post.cleaned_text)

@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Depends, BackgroundTasks, Query, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi.responses import RedirectResponse
+from fastapi.responses import StreamingResponse, JSONResponse, RedirectResponse
 from typing import List, Optional
 from schemas import PostSchema, GroupAddRequest, IndustryCreateRequest, IndustrySchema
 from sqlalchemy.orm import Session, joinedload

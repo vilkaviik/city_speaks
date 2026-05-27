@@ -43,6 +43,9 @@ class TextCleaner:
             if word not in self.stop_words
         ]
 
+        if len(filtered_words) < 10:
+            return ""
+
         return " ".join(filtered_words)
 
 ## Normalization

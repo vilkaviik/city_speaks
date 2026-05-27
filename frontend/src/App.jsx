@@ -70,21 +70,24 @@ const App = () => {
   const [statusFilter, setStatusFilter] = useState('active');
   const FIELD_DESCRIPTIONS = {
     // Посты
-    text: { label: "Текст поста", desc: "Оригинальный текст публикации" },
-    cleaned_text: { label: "Очищенный текст", desc: "Текст без ссылок, эмодзи и спецсимволов" },
-    normalized_text: { label: "Нормализованный текст", desc: "Текст, приведенный к начальной форме (лемматизация)" },
-    embedding: { label: "Эмбеддинг", desc: "Векторное представление текста (256 чисел)" },
-    er: { label: "ER", desc: "Коэффициент вовлеченности (Engagement Rate)" },
+    text: { label: "text", desc: "Оригинальный текст публикации" },
+    cleaned_text: { label: "cleaned_text", desc: "Текст без ссылок, эмодзи и спецсимволов" },
+    normalized_text: { label: "normalized_text", desc: "Текст, приведенный к начальной форме (лемматизация)" },
+    embedding: { label: "embedding", desc: "Векторное представление текста (256 чисел)" },
+    er: { label: "ER", desc: "er (Engagement Rate)" },
     posted_at: { label: "Дата публикации", desc: "Когда пост был опубликован в источнике" },
 
     // Тренды
-    name: { label: "Название тренда", desc: "Ключевое слово или фраза тренда" },
-    timespan: { label: "Период", desc: "Временной охват тренда (например, 24h)" },
-    is_active: { label: "Активен", desc: "Статус актуальности тренда на данный момент" },
+    name: { label: "title", desc: "Ключевое слово или фраза тренда" },
+    id: { label: "ID", desc: "Уникальный ключ" },
+    discovered_at: { label: "discovered_at", desc: "Дата и время обнаружения" },
+    timespan: { label: "timespan", desc: "Временной охват тренда (например, 24h)" },
+    is_active: { label: "is_active", desc: "Статус актуальности тренда на данный момент" },
+    industry_id: { label: "industry_id", desc: "Ключ категории тренда" },
 
     // Группы
-    subscribers: { label: "Подписчики", desc: "Количество участников сообщества" },
-    vk_id: { label: "VK ID", desc: "Уникальный идентификатор сообщества ВКонтакте" }
+    subscribers: { label: "subscribers", desc: "Количество участников сообщества" },
+    vk_id: { label: "vk_id", desc: "Уникальный идентификатор сообщества ВКонтакте" }
   };
   const krasnoyarskFormatter = new Intl.DateTimeFormat('ru-RU', {
     timeZone: 'Asia/Krasnoyarsk',
@@ -354,29 +357,16 @@ const App = () => {
 
         {/* ТЕКСТ ПОСТА */}
         <div style={{ textAlign: 'left', marginBottom: '8px', whiteSpace: 'pre-wrap', fontSize: '15px' }}>
-          {isLongText && !isExpanded
-            ? `${post.text.substring(0, MAX_LENGTH)}...`
-            : post.text
-          }
-          <a
-            href={post.url}
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: 'inherit', textDecoration: 'none' }}
-          >
-            {isLongText && !isExpanded
-              ? `${post.text.substring(0, MAX_LENGTH)}...`
-              : post.text
-            }
+          <a href={post.url} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} >
+            {isLongText && !isExpanded ? `${post.text.substring(0, MAX_LENGTH)}...` : post.text}
           </a>
 
           {isLongText && (
-            <span
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
+            <span onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
               style={{ color: '#2d73bc', cursor: 'pointer', fontWeight: '500', marginLeft: '5px' }}
             >
               {isExpanded ? ' Свернуть' : ' Показать полностью'}
