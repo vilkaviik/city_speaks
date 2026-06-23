@@ -100,10 +100,10 @@ const App = () => {
   });
 
   const TABLES_CONFIG = {
-    trends: ['id', 'name', 'er', 'timespan', 'industry_id', 'is_active', 'discovered_at'],
-    posts: ['id', 'text', 'cleaned_text', 'normalized_text', 'embedding', 'likes_count', 'views_count', 'er', 'url', 'posted_at'],
-    industries: ['id', 'name', 'description'],
-    groups: ['id', 'vk_id', 'title', 'screen_name', 'subscribers']
+    Тренды: ['id', 'name', 'er', 'timespan', 'category_id', 'is_active', 'discovered_at'],
+    Посты: ['id', 'text', 'cleaned_text', 'normalized_text', 'embedding', 'likes_count', 'views_count', 'er', 'url', 'posted_at'],
+    Категории: ['id', 'name', 'description'],
+    Группы: ['id', 'vk_id', 'title', 'screen_name', 'subscribers']
   };
 
   const saveSettings = () => {
