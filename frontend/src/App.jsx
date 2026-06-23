@@ -83,7 +83,7 @@ const App = () => {
     discovered_at: { label: "discovered_at", desc: "Дата и время обнаружения" },
     timespan: { label: "timespan", desc: "Временной охват тренда (например, 24h)" },
     is_active: { label: "is_active", desc: "Статус актуальности тренда на данный момент" },
-    industry_id: { label: "industry_id", desc: "Ключ категории тренда" },
+    industry_id: { label: "category_id", desc: "Ключ категории тренда" },
 
     // Группы
     subscribers: { label: "subscribers", desc: "Количество участников сообщества" },
@@ -104,6 +104,13 @@ const App = () => {
     posts: ['id', 'text', 'cleaned_text', 'normalized_text', 'embedding', 'likes_count', 'views_count', 'er', 'url', 'posted_at'],
     industries: ['id', 'name', 'description'],
     groups: ['id', 'vk_id', 'title', 'screen_name', 'subscribers']
+  };
+
+  const TABLE_LABELS = {
+    trends: 'Тренды',
+    posts: 'Публикации',
+    industries: 'Категории',
+    groups: 'Группы'
   };
 
   const saveSettings = () => {
@@ -784,7 +791,10 @@ const App = () => {
               <Select
                 value={table}
                 onChange={handleTableChange}
-                options={Object.keys(TABLES_CONFIG).map(t => ({ label: t, value: t }))}
+                options={Object.keys(TABLES_CONFIG).map(t => ({
+                  label: TABLE_LABELS[t] || t, 
+                  value: t                     
+                }))}
               />
             </FormItem>
 
